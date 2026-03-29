@@ -1,11 +1,11 @@
 ![image](https://github.com/user-attachments/assets/86f609c7-17cb-40b7-81ca-5411ad1507eb)
 
-## No Engine
-> **A 3D Graphics Engine made in Javascript with NO Shaders or GLs**  
+## No Engine - Optimized
+> **A 3D Graphics Engine made in Javascript with NO Shaders or GLs + several needed optimizations**  
 
-## Setup
-
-  The `stageFiles` folder is stages of the engine broken down into multiple files. 
-  You can run anyone along with the `controls.js` file. 
-  
-  The final engine code is in `main.js`
+## Optimizations:
+1) Texture mapping now uses affine transformation + clip() instead of a scanline loop
+2) Replaced Vertex with Float32Arrays and hoisted sinT/cosT out of sphere's inner loop in setUp
+3) Replaced Array.sort with insertion sort
+4) Removed new Vertex allocation inside calcLighting on both classes, replaced with scalar cx/cy/cz accumulation
+5) blendWithWhite and hexToRgb are now moved out of drawTriangle
