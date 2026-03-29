@@ -1,7 +1,11 @@
 ![image](https://github.com/user-attachments/assets/86f609c7-17cb-40b7-81ca-5411ad1507eb)
 
 ## No Engine - Optimized
-> **A 3D Graphics Engine made in Javascript with NO Shaders or GLs + several needed optimizations**  
+> **A 3D Graphics Engine made in Javascript with NO Shaders or GLs + several needed optimizations**
+
+## Benchmark:
+* Original: Far: 135-142 FPS | Close: 6-7 FPS
+* Optimized: Far: 137-144 FPS | Close: 64-79 FPS (~+300% Increase from the original)
 
 ## Optimizations:
 1) Texture mapping now uses affine transformation + clip() instead of a scanline loop
