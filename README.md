@@ -9,3 +9,7 @@
 3) Replaced Array.sort with insertion sort
 4) Removed new Vertex allocation inside calcLighting on both classes, replaced with scalar cx/cy/cz accumulation
 5) blendWithWhite and hexToRgb are now moved out of drawTriangle
+
+## Setup:
+* Download the zip file and extract it in order to get the folder
+* Engine is in main.js
