@@ -16,6 +16,18 @@ let angle = 0;
 let cameraZ = 1000;
 const fov = 500;
 
+function insertionSort(arr) {
+    for (let i = 1; i < arr.length; i++) {
+        const key = arr[i];
+        let j = i - 1;
+        while (j >= 0 && arr[j].z < key.z) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = key;
+    }
+}
+
 function fillQuad(tl, tr, br, bl, color, alpha = 0.5, isL = false) {
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -48,30 +60,30 @@ const drawLine = (x1, y1, x2, y2, color, alpha = 0.5) => {
     ctx.restore();
 }
 
+// Helper to blend color with white
+function blendWithWhite(hex, alpha) {
+    const rgb = hexToRgb(hex);
+    const r = Math.round(255 + (rgb.r - 255) * alpha);
+    const g = Math.round(255 + (rgb.g - 255) * alpha);
+    const b = Math.round(255 + (rgb.b - 255) * alpha);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Convert hex color to RGB object
+function hexToRgb(hex) {
+    hex = hex.replace(/^#/, '');
+    if (hex.length === 3) {
+       hex = hex.split('').map(c => c + c).join('');
+    }
+     const num = parseInt(hex, 16);
+    return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+    };
+}
+
 function drawTriangle(p1, p2, p3, color, alpha = 1) {
-    // Helper to blend color with white
-    function blendWithWhite(hex, alpha) {
-        const rgb = hexToRgb(hex);
-        const r = Math.round(255 + (rgb.r - 255) * alpha);
-        const g = Math.round(255 + (rgb.g - 255) * alpha);
-        const b = Math.round(255 + (rgb.b - 255) * alpha);
-        return `rgb(${r}, ${g}, ${b})`;
-    }
-
-    // Convert hex color to RGB object
-    function hexToRgb(hex) {
-        hex = hex.replace(/^#/, '');
-        if (hex.length === 3) {
-            hex = hex.split('').map(c => c + c).join('');
-        }
-        const num = parseInt(hex, 16);
-        return {
-            r: (num >> 16) & 255,
-            g: (num >> 8) & 255,
-            b: num & 255
-        };
-    }
-
     const blendedColor = blendWithWhite(color, alpha);
 
     ctx.save();
@@ -85,112 +97,62 @@ function drawTriangle(p1, p2, p3, color, alpha = 1) {
     ctx.restore();
 }
 
-
-
-function isLineOnScreen(x1, y1, x2, y2, padding = 50) {
-    // Pad the screen edges slightly to account for rotations and rounding
-    const inBounds = (x, y) =>
-        x >= -padding && x <= CW + padding &&
-        y >= -padding && y <= CH + padding;
-
-    return inBounds(x1, y1) || inBounds(x2, y2);
-}
-
-function isLineCompletelyOffScreen(x1, y1, x2, y2) {
-    const w = ctx.canvas.width;
-    const h = ctx.canvas.height;
-
-    // Bounding box of the line
-    const minX = Math.min(x1, x2);
-    const maxX = Math.max(x1, x2);
-    const minY = Math.min(y1, y2);
-    const maxY = Math.max(y1, y2);
-
-    // Entirely outside the screen
-    return (
-        maxX < 0 ||
-        minX > w ||
-        maxY < 0 ||
-        minY > h
-    );
-}
-
 function drawTxOnFace(tl, bl, tr, br) {
-    const steps = Math.ceil(Math.max(
-        Math.hypot(bl.x - tl.x, bl.y - tl.y),
-        Math.hypot(br.x - tr.x, br.y - tr.y)
-    ));
-
-
-    for (let i = 0; i < steps; i += 1) {
-        let t = i / steps;
-        let texY = Math.floor(t * texture.height);
-
-        // Interpolate points across the face
-        let leftX = tl.x + (bl.x - tl.x) * t;
-        let leftY = tl.y + (bl.y - tl.y) * t;
-
-        let rightX = tr.x + (br.x - tr.x) * t;
-        let rightY = tr.y + (br.y - tr.y) * t;
-
-        // Draw the texture strip at the interpolated position
-        if (isLineOnScreen(leftX, leftY, rightX, rightY) || !isLineCompletelyOffScreen(leftX, leftY, rightX, rightY)) {
-            drawTextureLine(leftX, leftY, rightX, rightY, texY);
-        }
-
-    }
-}
-
-function drawTextureLine(x1, y1, x2, y2, texY) {
-    // Width of the interpolated line
-    const width = Math.hypot(x2 - x1, y2 - y1);
-
-    // Angle of the line
-    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const tw = texture.width, th = texture.height;
 
     ctx.save();
 
-    // Move to start point
-    ctx.translate(x1, y1);
-    ctx.rotate(angle);
+    // Triangle 1: tl, tr, bl
+    ctx.beginPath();
+    ctx.moveTo(tl.x, tl.y);
+    ctx.lineTo(tr.x, tr.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.closePath();
+    ctx.save();
+    ctx.clip();
+    const {a:a1,b:b1,c:c1,d:d1,e:e1,f:f1} = calcTransform(tl,tr,bl,{u:0,v:0},{u:1,v:0},{u:0,v:1},tw,th);
+    ctx.setTransform(a1,b1,c1,d1,e1,f1);
+    ctx.drawImage(texture, 0, 0);
+    ctx.restore();
 
-    // Draw 1px strip from the texture onto the line
-    ctx.drawImage(
-        texture,
-        0,
-        texY,
-        texture.width,
-        1, // Source: 1 row from texture
-        0,
-        0,
-        width,
-        1           // Dest: stretch across the line
-    );
+    // Triangle 2: tr, br, bl
+    ctx.beginPath();
+    ctx.moveTo(tr.x, tr.y);
+    ctx.lineTo(br.x, br.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.closePath();
+    ctx.save();
+    ctx.clip();
+    const {a:a2,b:b2,c:c2,d:d2,e:e2,f:f2} = calcTransform(tr,br,bl,{u:1,v:0},{u:1,v:1},{u:0,v:1},tw,th);
+    ctx.setTransform(a2,b2,c2,d2,e2,f2);
+    ctx.drawImage(texture, 0, 0);
+    ctx.restore();
 
     ctx.restore();
 }
 
-
+function calcTransform(p0, p1, p2, uv0, uv1, uv2, tw, th) {
+    const sx0=uv0.u*tw, sy0=uv0.v*th;
+    const sx1=uv1.u*tw, sy1=uv1.v*th;
+    const sx2=uv2.u*tw, sy2=uv2.v*th;
+    const denom = (sx1-sx0)*(sy2-sy0) - (sx2-sx0)*(sy1-sy0);
+    if (Math.abs(denom) < 0.0001) return {a:1,b:0,c:0,d:1,e:0,f:0};
+    const a = ((p1.x-p0.x)*(sy2-sy0) - (p2.x-p0.x)*(sy1-sy0)) / denom;
+    const b = ((p1.y-p0.y)*(sy2-sy0) - (p2.y-p0.y)*(sy1-sy0)) / denom;
+    const c = ((p2.x-p0.x)*(sx1-sx0) - (p1.x-p0.x)*(sx2-sx0)) / denom;
+    const d = ((p2.y-p0.y)*(sx1-sx0) - (p1.y-p0.y)*(sx2-sx0)) / denom;
+    const e = p0.x - a*sx0 - c*sy0;
+    const f = p0.y - b*sx0 - d*sy0;
+    return {a,b,c,d,e,f};
+}
 
 let cameraRotX = 0; // look up/down
 let cameraRotY = 0; // look left/right
 
-const rotZMat = (angle) => [
+const rotZMat = (angle) => [ // Completely useless???
     [Math.cos(angle), -Math.sin(angle), 0],
     [Math.sin(angle), Math.cos(angle), 0],
     [0, 0, 1]
-];
-
-const rotXMat = (angle) => [
-    [1, 0, 0],
-    [0, Math.cos(angle), -Math.sin(angle)],
-    [0, Math.sin(angle), Math.cos(angle)]
-];
-
-const rotYMat = (angle) => [
-    [Math.cos(angle), 0, Math.sin(angle)],
-    [0, 1, 0],
-    [-Math.sin(angle), 0, Math.cos(angle)]
 ];
 
 function multMat(matrix, vertex) {
@@ -235,7 +197,6 @@ const center = new Vertex(CW2, CH2, 0);
 
 let lightPos = { x: 0, y: -200, z: 0 };
 
-
 class Sphere {
     constructor({ x, y, z, r }) {
         this.x = x;
@@ -254,69 +215,47 @@ class Sphere {
     calcLighting(lightPos, intensity = 250) {
         for (let i = 0; i < this.T.length; i++) {
             let t = this.T[i];
-
-            // Get face center
-            let v1 = this.V[t[0]];
-            let v2 = this.V[t[1]];
-            let v3 = this.V[t[2]];
-
-            let center = new Vertex(
-                (v1.x + v2.x + v3.x) / 3,
-                (v1.y + v2.y + v3.y) / 3,
-                (v1.z + v2.z + v3.z) / 3
-            );
-
-            // Get distance from light
-            let dx = center.x - lightPos.x;
-            let dy = center.y - lightPos.y;
-            let dz = center.z - lightPos.z;
-
-            let dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            let brightness = Math.min(0.8, (dist * dist) / (intensity * intensity));
-
-            this.triangleBrightness[i] = brightness;
+            const i0 = t[0] * 3, i1 = t[1] * 3, i2 = t[2] * 3;
+            const cx = (this.V[i0] + this.V[i1] + this.V[i2]) / 3;
+            const cy = (this.V[i0+1] + this.V[i1+1] + this.V[i2+1]) / 3;
+            const cz = (this.V[i0+2] + this.V[i1+2] + this.V[i2+2]) / 3;
+            const dx = cx - lightPos.x, dy = cy - lightPos.y, dz = cz - lightPos.z;
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            this.triangleBrightness[i] = Math.min(0.8, (dist*dist) / (intensity*intensity));
         }
     }
 
     setUp() {
         this.V.length = 0; // Clear existing points
+
         const segments = 20; // Higher = smoother
+        const vertexCount = (segments + 1) * (segments + 1);
+        this.V = new Float32Array(vertexCount * 3);
 
+        let vi = 0;
         for (let i = 0; i <= segments; i++) {
-            const theta = i * Math.PI / segments; // latitude
-
+            const theta = i * Math.PI / segments;
+            const sinT = Math.sin(theta), cosT = Math.cos(theta);
             for (let j = 0; j <= segments; j++) {
                 const phi = j * 2 * Math.PI / segments;
-
-                const x = this.r * Math.sin(theta) * Math.cos(phi);
-                const y = this.r * Math.sin(theta) * Math.sin(phi);
-                const z = this.r * Math.cos(theta);
-
-                this.V.push(new Vertex(x + this.x, y + this.y, z + this.z));
+                this.V[vi++] = this.r * sinT * Math.cos(phi) + this.x;
+                this.V[vi++] = this.r * sinT * Math.sin(phi) + this.y;
+                this.V[vi++] = this.r * cosT + this.z;
             }
         }
 
         const pointsPerRow = segments + 1;
-
         for (let i = 0; i < segments; i++) {
             for (let j = 0; j < segments; j++) {
                 const a = i * pointsPerRow + j;
-                const b = a + 1;
-                const c = a + pointsPerRow;
-                const d = c + 1;
-
-                // Triangle 1
+                const b = a + 1, c = a + pointsPerRow, d = c + 1;
                 this.T.push([a, b, c]);
-                // Triangle 2
                 this.T.push([b, d, c]);
-
-                //default lighting
-                this.triangleBrightness.push(1);
+                this.triangleBrightness.push(1, 1);
             }
         }
     }
 }
-
 
 class Cube {
     constructor({ x, y, z, w = 100, h = 100, d = 100, isL = false }) {
@@ -349,22 +288,20 @@ class Cube {
         for (let i = 0; i < 6; i++) {
             let face = this.F[i];
 
-            // Get face center
-            let v1 = this.V[face[0]];
-            let v2 = this.V[face[1]];
-            let v3 = this.V[face[2]];
-            let v4 = this.V[face[3]];
+            let cx = 0, cy = 0, cz = 0;
+            for (let j = 0; j < 4; j++) {
+                const idx = face[j] * 3;
+                cx += this.V[idx];
+                cy += this.V[idx + 1];
+                cz += this.V[idx + 2];
+            }
 
-            let center = new Vertex(
-                (v1.x + v2.x + v3.x + v4.x) / 4,
-                (v1.y + v2.y + v3.y + v4.y) / 4,
-                (v1.z + v2.z + v3.z + v4.z) / 4
-            );
+            cx /= 4; cy /= 4; cz /= 4;
 
             // Get distance from light
-            let dx = center.x - lightPos.x;
-            let dy = center.y - lightPos.y;
-            let dz = center.z - lightPos.z;
+            let dx = cx - lightPos.x;
+            let dy = cy - lightPos.y;
+            let dz = cz - lightPos.z;
 
             let dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
             let brightness = Math.min(0.8, (dist * dist) / (intensity * intensity));
@@ -374,25 +311,26 @@ class Cube {
     }
 
     setUp() {
-        const x = this.x;
-        const y = this.y;
-        const z = this.z;
+        const vertexCount = 8;
+        this.V = new Float32Array(vertexCount * 3);
 
-        const w = this.w;
-        const h = this.h;
-        const d = this.d;
+        const x = this.x, y = this.y, z = this.z;
+        const w = this.w, h = this.h, d = this.d;
 
-        this.V[0] = new Vertex(-w + x, -h + y, -d + z); // top-left-front
-        this.V[1] = new Vertex(w + x, -h + y, -d + z);  // top-right-front
-        this.V[2] = new Vertex(-w + x, h + y, -d + z);  // bottom-left-front
-        this.V[3] = new Vertex(w + x, h + y, -d + z);   // bottom-right-front
-        this.V[4] = new Vertex(-w + x, -h + y, d + z);  // top-left-back
-        this.V[5] = new Vertex(w + x, -h + y, d + z);   // top-right-back
-        this.V[6] = new Vertex(-w + x, h + y, d + z);   // bottom-left-back
-        this.V[7] = new Vertex(w + x, h + y, d + z);    // bottom-right-back
+        const verts = [
+            -w+x, -h+y, -d+z,
+             w+x, -h+y, -d+z,
+            -w+x,  h+y, -d+z,
+             w+x,  h+y, -d+z,
+            -w+x, -h+y,  d+z,
+             w+x, -h+y,  d+z,
+            -w+x,  h+y,  d+z,
+            w+x,  h+y,  d+z,
+        ];
+
+        this.V.set(verts);
     }
 }
-
 
 const cube1 = new Cube({ x: 0, y: 100, z: 0, w: 250, h: 100, d: 400 });
 const cube2 = new Cube({ x: 0, y: 0, z: 50, w: 250, h: 100, d: 300 });
@@ -405,19 +343,19 @@ const sphere1 = new Sphere({ x: 0, y: -300, z: 50, r: 100 });
 const cubes = [cube1, cube2, cube3, cube4];
 const spheres = [sphere1];
 
-
 const projectWorld = (obj, objIndex, queue) => {
     let projected = [];
 
-    for (let v of obj.V) {
+    for (let i = 0; i < obj.V.length / 3; i++) {
+        const vx = obj.V[i*3], vy = obj.V[i*3+1], vz = obj.V[i*3+2];
         let translated = {
-            x: v.x - cameraPos.x,
-            y: v.y - cameraPos.y,
-            z: v.z - cameraPos.z
+            x: vx - cameraPos.x,
+            y: vy - cameraPos.y,
+            z: vz - cameraPos.z,
         };
 
-        let rotated = multMat(rotYMat(-cameraRotY), translated);
-        rotated = multMat(rotXMat(-cameraRotX), rotated);
+        let rotated = multMat([[Math.cos(-cameraRotY), 0, Math.sin(-cameraRotY)], [0, 1, 0], [-Math.sin(-cameraRotY), 0, Math.cos(-cameraRotY)]], translated);
+        rotated = multMat([[1, 0, 0], [0, Math.cos(-cameraRotX), -Math.sin(-cameraRotX)], [0, Math.sin(-cameraRotX), Math.cos(-cameraRotX)]], rotated);
 
         let proj2D = perspectiveProject(rotated, fov, cameraZ, obj.isL);
 
@@ -504,8 +442,8 @@ const engine = () => {
     // Camera control
     if (K.W) cameraRotX -= 0.02;
     if (K.S) cameraRotX += 0.02;
-    if (K.A) cameraRotY -= 0.02;
-    if (K.D) cameraRotY += 0.02;
+    if (K.A) cameraRotY += 0.02;
+    if (K.D) cameraRotY -= 0.02;
     if (K.u) cameraZ -= 10;
     if (K.d) cameraZ += 10;
     if (K.l) {
@@ -516,9 +454,6 @@ const engine = () => {
         cameraPos.x += Math.cos(cameraRotY) * 4;
         cameraPos.z -= Math.sin(cameraRotY) * 4;
     }
-
-
-
 
     let objQueue = [];
     let lightCube = cubes[3];
@@ -549,7 +484,7 @@ const engine = () => {
 
 
     // Sort back to front
-    objQueue.sort((a, b) => b.z - a.z);
+    insertionSort(objQueue);
 
     // Draw sorted faces
     for (let i = 0; i < objQueue.length; i++) {
@@ -575,8 +510,6 @@ const engine = () => {
             let bri = obj.triangleBrightness[sq.triIndex];
 
             drawTriangle(sq.p1, sq.p2, sq.p3, 'white', bri);
-
-
         }
     }
 
