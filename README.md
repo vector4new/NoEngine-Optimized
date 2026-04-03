@@ -15,7 +15,7 @@
 5) blendWithWhite and hexToRgb are now moved out of drawTriangle
 6) Added backface culling (stolen it from ZR3D-Lite) - V2
 7) Added delta-time (dt) to camera movement - V2
-8) objQueue's length is now set to 0 everytime instead of creating a brand new array
+8) objQueue's length is now set to 0 everytime instead of creating a brand new array - V2
 
 ## Adjustments:
 1) Every object is in the objects.js file for easier use + added cylinders
