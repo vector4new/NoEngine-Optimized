@@ -1,3 +1,6 @@
+import { Cube, Cylinder, Sphere } from './objects.js';
+const data = await fetch('./scenes/default.json').then(r => r.json());
+
 const cvs = document.querySelector('#c');
 const ctx = cvs.getContext('2d');
 
@@ -97,7 +100,7 @@ function drawTriangle(p1, p2, p3, color, alpha = 1) {
     ctx.restore();
 }
 
-function drawTxOnFace(tl, bl, tr, br) {
+function drawTxOnFace(tl, tr, br, bl) {
     const tw = texture.width, th = texture.height;
 
     ctx.save();
@@ -197,151 +200,10 @@ const center = new Vertex(CW2, CH2, 0);
 
 let lightPos = { x: 0, y: -200, z: 0 };
 
-class Sphere {
-    constructor({ x, y, z, r }) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-        this.r = r;
-
-        this.V = [];
-        this.T = [];
-
-        this.triangleBrightness = [];
-
-        this.setUp();
-    }
-
-    calcLighting(lightPos, intensity = 250) {
-        for (let i = 0; i < this.T.length; i++) {
-            let t = this.T[i];
-            const i0 = t[0] * 3, i1 = t[1] * 3, i2 = t[2] * 3;
-            const cx = (this.V[i0] + this.V[i1] + this.V[i2]) / 3;
-            const cy = (this.V[i0+1] + this.V[i1+1] + this.V[i2+1]) / 3;
-            const cz = (this.V[i0+2] + this.V[i1+2] + this.V[i2+2]) / 3;
-            const dx = cx - lightPos.x, dy = cy - lightPos.y, dz = cz - lightPos.z;
-            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-            this.triangleBrightness[i] = Math.min(0.8, (dist*dist) / (intensity*intensity));
-        }
-    }
-
-    setUp() {
-        this.V.length = 0; // Clear existing points
-
-        const segments = 20; // Higher = smoother
-        const vertexCount = (segments + 1) * (segments + 1);
-        this.V = new Float32Array(vertexCount * 3);
-
-        let vi = 0;
-        for (let i = 0; i <= segments; i++) {
-            const theta = i * Math.PI / segments;
-            const sinT = Math.sin(theta), cosT = Math.cos(theta);
-            for (let j = 0; j <= segments; j++) {
-                const phi = j * 2 * Math.PI / segments;
-                this.V[vi++] = this.r * sinT * Math.cos(phi) + this.x;
-                this.V[vi++] = this.r * sinT * Math.sin(phi) + this.y;
-                this.V[vi++] = this.r * cosT + this.z;
-            }
-        }
-
-        const pointsPerRow = segments + 1;
-        for (let i = 0; i < segments; i++) {
-            for (let j = 0; j < segments; j++) {
-                const a = i * pointsPerRow + j;
-                const b = a + 1, c = a + pointsPerRow, d = c + 1;
-                this.T.push([a, b, c]);
-                this.T.push([b, d, c]);
-                this.triangleBrightness.push(1, 1);
-            }
-        }
-    }
-}
-
-class Cube {
-    constructor({ x, y, z, w = 100, h = 100, d = 100, isL = false }) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-
-        this.w = w / 2; // half width
-        this.h = h / 2; // half height
-        this.d = d / 2; // half depth
-
-        this.isL = isL;
-
-        this.V = [];
-        this.F = [
-            [0, 1, 3, 2], // front
-            [4, 5, 7, 6], // back
-            [0, 2, 6, 4], // left
-            [1, 5, 7, 3], // right
-            [0, 4, 5, 1], // top
-            [2, 3, 7, 6]  // bottom
-        ];
-
-        this.faceBrightness = new Array(6).fill(1); // one brightness per face
-
-        this.setUp();
-    }
-
-    calcLighting(lightPos, intensity = 450) {
-        for (let i = 0; i < 6; i++) {
-            let face = this.F[i];
-
-            let cx = 0, cy = 0, cz = 0;
-            for (let j = 0; j < 4; j++) {
-                const idx = face[j] * 3;
-                cx += this.V[idx];
-                cy += this.V[idx + 1];
-                cz += this.V[idx + 2];
-            }
-
-            cx /= 4; cy /= 4; cz /= 4;
-
-            // Get distance from light
-            let dx = cx - lightPos.x;
-            let dy = cy - lightPos.y;
-            let dz = cz - lightPos.z;
-
-            let dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            let brightness = Math.min(0.8, (dist * dist) / (intensity * intensity));
-
-            this.faceBrightness[i] = brightness;
-        }
-    }
-
-    setUp() {
-        const vertexCount = 8;
-        this.V = new Float32Array(vertexCount * 3);
-
-        const x = this.x, y = this.y, z = this.z;
-        const w = this.w, h = this.h, d = this.d;
-
-        const verts = [
-            -w+x, -h+y, -d+z,
-             w+x, -h+y, -d+z,
-            -w+x,  h+y, -d+z,
-             w+x,  h+y, -d+z,
-            -w+x, -h+y,  d+z,
-             w+x, -h+y,  d+z,
-            -w+x,  h+y,  d+z,
-            w+x,  h+y,  d+z,
-        ];
-
-        this.V.set(verts);
-    }
-}
-
-const cube1 = new Cube({ x: 0, y: 100, z: 0, w: 250, h: 100, d: 400 });
-const cube2 = new Cube({ x: 0, y: 0, z: 50, w: 250, h: 100, d: 300 });
-const cube3 = new Cube({ x: 0, y: -100, z: 100, w: 250, h: 100, d: 200 });
-const cube4 = new Cube({ ...lightPos, w: 50, h: 50, d: 50, isL: true });
-
-const sphere1 = new Sphere({ x: 0, y: -300, z: 50, r: 100 });
-
-
-const cubes = [cube1, cube2, cube3, cube4];
-const spheres = [sphere1];
+const lightCube = new Cube({ ...lightPos, w: 50, h: 50, d: 50, isL: true });
+const cubes = [...data.cubes.map(c => new Cube(c)), lightCube];
+const spheres = data.spheres.map(s => { const sp = new Sphere(s); sp.type = 'sphere'; return sp; });
+const cylinders = data.cylinders.map(cyl => { const c = new Cylinder(cyl); c.type = 'cylinder'; return c; });
 
 const projectWorld = (obj, objIndex, queue) => {
     let projected = [];
@@ -366,32 +228,32 @@ const projectWorld = (obj, objIndex, queue) => {
 
         proj2D.x -= cameraPos.x;
         proj2D.y -= cameraPos.y;
-        proj2D.z = rotated.z; // Keep rotated Z for depth
+        proj2D.z = rotated.z;
 
         projected.push(proj2D);
     }
 
-    // cubes with faces
+    // with faces
     if (obj.F) {
-        obj.F.forEach((fac, index) => {
-            let i1 = fac[0];
-            let i2 = fac[1];
-            let i3 = fac[2];
-            let i4 = fac[3];
-
-            let p1 = projected[i1];
-            let p2 = projected[i2];
-            let p3 = projected[i3];
-            let p4 = projected[i4];
+        for (let index = 0; index < obj.F.length; index++) {
+            const fac = obj.F[index];
+            const p1 = projected[fac[0]];
+            const p2 = projected[fac[1]];
+            const p3 = projected[fac[2]];
+            const p4 = projected[fac[3]];
 
             if (p1 && p2 && p3 && p4) {
+                // ZR3D-Lite backface culling for quads (we're stealing now??? ok cool)
+                // the reason why we steal is because the behind face of each cube is apparently culled for some odd reason
+                const ex1 = p2.x - p1.x, ey1 = p2.y - p1.y;
+                const ex2 = p3.x - p1.x, ey2 = p3.y - p1.y;
+                const cross = ex1 * ey2 - ey1 * ex2;
+                
+                if (cross >= 0 && !obj.isL) continue;
+                
                 const avgZ = (p1.z + p2.z + p3.z + p4.z) / 4;
-
                 queue.push({
-                    p1,
-                    p2,
-                    p3,
-                    p4,
+                    p1, p2, p3, p4,
                     z: avgZ,
                     isL: obj.isL,
                     isCube: true,
@@ -399,41 +261,52 @@ const projectWorld = (obj, objIndex, queue) => {
                     facIndex: index
                 });
             }
-        });
+        }
     }
 
-    // spheres with triangles
+    // with triangles
     if (obj.T) {
-        obj.T.forEach((tri, index) => {
+        for (let index = 0; index < obj.T.length; index++) {
+            const tri = obj.T[index];
             const p1 = projected[tri[0]];
             const p2 = projected[tri[1]];
             const p3 = projected[tri[2]];
 
             if (p1 && p2 && p3) {
+                // ZR3D-Lite backface culling for triangles
+                const ex1 = p2.x - p1.x, ey1 = p2.y - p1.y;
+                const ex2 = p3.x - p1.x, ey2 = p3.y - p1.y;
+                const cross = ex1 * ey2 - ey1 * ex2;
+                
+                if (cross <= 0) continue; // inverse so we don't get the inverted hull effect
+                
                 const avgZ = (p1.z + p2.z + p3.z) / 3;
-
                 queue.push({
-                    p1,
-                    p2,
-                    p3,
+                    p1, p2, p3,
                     z: avgZ,
                     isCube: false,
+                    type: obj.type,
                     objIndex: objIndex,
                     triIndex: index
                 });
             }
-        });
+        }
     }
 };
 
 let lVelx = 0;
-let lVelz = 0;
 
 let lastTime = performance.now();
 let frameCount = 0;
 let fps = 0;
 
+let objQueue = [];
+
 const engine = () => {
+    const now = performance.now();
+    const dt = Math.min((now - lastTime) * 0.001, 0.033);
+
+    objQueue.length = 0;
 
     ctx.clearRect(0, 0, cvs.width, cvs.height);
     ctx.fillStyle = 'black';
@@ -447,29 +320,20 @@ const engine = () => {
     if (K.u) cameraZ -= 10;
     if (K.d) cameraZ += 10;
     if (K.l) {
-        cameraPos.x -= Math.cos(cameraRotY) * 4;
-        cameraPos.z += Math.sin(cameraRotY) * 4;
+        cameraPos.x -= Math.cos(cameraRotY) * 4 * dt;
+        cameraPos.z += Math.sin(cameraRotY) * 4 * dt;
     }
     if (K.r) {
-        cameraPos.x += Math.cos(cameraRotY) * 4;
-        cameraPos.z -= Math.sin(cameraRotY) * 4;
+        cameraPos.x += Math.cos(cameraRotY) * 4 * dt;
+        cameraPos.z -= Math.sin(cameraRotY) * 4 * dt;
     }
-
-    let objQueue = [];
-    let lightCube = cubes[3];
 
     cubes.forEach((c, i) => {
         projectWorld(c, i, objQueue);
-
         if (c.isL) {
-            // circular light motion
-            const radius = 200;
-            const speed = 0.002; // radians per frame
-            const angle = performance.now() * speed;
-
-            c.x = Math.cos(angle) * radius + lightPos.x;
-            c.z = Math.sin(angle) * radius + lightPos.z;
-
+            const angle = performance.now() * 0.002;
+            c.x = Math.cos(angle) * 200 + lightPos.x;
+            c.z = Math.sin(angle) * 200 + lightPos.z;
             c.setUp();
         } else {
             c.calcLighting({ x: lightCube.x, y: lightCube.y, z: lightCube.z });
@@ -482,6 +346,12 @@ const engine = () => {
         s.calcLighting({ x: lightCube.x, y: lightCube.y, z: lightCube.z });
     });
 
+    cylinders.forEach((co, i) => {
+        projectWorld(co, i, objQueue);
+
+        co.calcLighting({ x: lightCube.x, y: lightCube.y, z: lightCube.z });
+    });
+
 
     // Sort back to front
     insertionSort(objQueue);
@@ -492,7 +362,7 @@ const engine = () => {
 
         if (oq.isCube) {
             if (!oq.isL) {
-                drawTxOnFace(oq.p1, oq.p4, oq.p2, oq.p3);
+                drawTxOnFace(oq.p1, oq.p2, oq.p3, oq.p4);
 
                 //calc brightness
                 let obj = cubes[oq.objIndex];
@@ -504,16 +374,18 @@ const engine = () => {
             }
         } else {
             let sq = objQueue[i];
+            let bri;
 
-            // //calc brightness
-            let obj = spheres[sq.objIndex];
-            let bri = obj.triangleBrightness[sq.triIndex];
+            if (sq.type === 'sphere') {
+                bri = spheres[sq.objIndex].triangleBrightness[sq.triIndex];
+            } else if (sq.type === 'cylinder') {
+                bri = cylinders[sq.objIndex].triangleBrightness[sq.triIndex];
+            }
 
             drawTriangle(sq.p1, sq.p2, sq.p3, 'white', bri);
         }
     }
 
-    const now = performance.now();
     frameCount++;
 
     if (now - lastTime >= 1000) {
