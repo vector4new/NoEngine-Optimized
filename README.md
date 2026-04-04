@@ -13,13 +13,13 @@
 3) Replaced Array.sort with insertion sort
 4) Removed new Vertex allocation inside calcLighting on both classes, replaced with scalar cx/cy/cz accumulation
 5) blendWithWhite and hexToRgb are now moved out of drawTriangle
-6) Added backface culling (stolen it from ZR3D-Lite) - V2
-7) Added delta-time (dt) to camera movement - V2
-8) objQueue's length is now set to 0 everytime instead of creating a brand new array - V2
+6) Added backface culling (stolen it from ZR3D-Lite) - V1.1
+7) Added delta-time (dt) to camera movement - V1.1
+8) objQueue's length is now set to 0 everytime instead of creating a brand new array - V1.1
 
 ## Adjustments:
-1) Every object is in the objects.js file for easier use + added cylinders
-2) JSON scenes are implemented instead of using hardcoded scenes (may expand this in the future) + dynamic object creation
+1) Every object is in the objects.js file for easier use + added cylinders - V1.1
+2) JSON scenes are implemented instead of using hardcoded scenes (may expand this in the future) + dynamic object creation - V1.1
 
 ## Setup:
 * Download the zip file and extract it in order to get the folder
